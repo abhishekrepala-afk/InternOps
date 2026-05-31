@@ -1,4 +1,5 @@
 ﻿const auth = require('../../middleware/auth');
+const rbac = require('../../middleware/rbac');
 const repo = require('./repository');
 const { createAuditLog, extractRequestInfo } = require('../../utils/audit');
 
@@ -22,11 +23,9 @@ async function routes(fastify) {
     return { message: 'Session revoked' };
   });
 
-  // Revoke all other sessions (keep current)
+  // Revoke all other sessions
   fastify.post('/me/revoke-all', { preHandler: [auth] }, async (req) => {
     await repo.revokeAllUserSessions(req.user.id);
-    // Re-create the current session token? The current refresh token is in the cookie; we don't revoke that one.
-    // A full implementation would exclude the current token. For now, we revoke all and force re-login.
     await createAuditLog({
       userId: req.user.id,
       action: 'ALL_SESSIONS_REVOKED',
@@ -34,6 +33,20 @@ async function routes(fastify) {
       ...extractRequestInfo(req),
     });
     return { message: 'All sessions revoked. Please re-login.' };
+  });
+
+  // Admin: revoke all sessions of a specific user
+  fastify.post('/admin/revoke-user/:userId', { preHandler: [auth, rbac('ADMIN')] }, async (req, reply) => {
+    const { userId } = req.params;
+    await require('../auth/repository').revokeAllUserTokensRedis(userId);
+    await createAuditLog({
+      userId: req.user.id,
+      action: 'ADMIN_REVOKED_USER_SESSIONS',
+      resourceType: 'session',
+      resourceId: userId,
+      ...extractRequestInfo(req),
+    });
+    return { message: `All sessions for user ${userId} revoked` };
   });
 }
 
