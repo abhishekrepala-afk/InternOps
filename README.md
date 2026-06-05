@@ -253,14 +253,16 @@ The system uses PostgreSQL with UUID primary keys and soft-delete columns (delet
 - users – User accounts with role, manager hierarchy, department, and suspension status.
 - departments – Department names and creators.
 - ttendance – Immutable attendance records with status (Present/Absent/Half-day) and remarks.
-- atings – Permanent rating history with score (1-5), reviewer, and remarks.
+- 
+atings – Permanent rating history with score (1-5), reviewer, and remarks.
 - social_tasks – Task definitions with deadlines and target platforms.
 - proof_submissions – Image uploads linked to tasks, with verification status.
 - 
 otifications – In-app notification messages per user.
 - udit_logs – Complete history of all sensitive actions.
 - meetings – Scheduled meetings with attendees.
-- efresh_tokens – JWT refresh token store.
+- 
+efresh_tokens – JWT refresh token store.
 - login_attempts – Brute-force tracking table.
 
 All tables use foreign keys and indexes for referential integrity and performance.
@@ -335,5 +337,5 @@ InternOps is proprietary software developed for the Uptoskills ecosystem. All ri
 
 ---
 
-**Maintainers:** Rajat Wyrm  
+**Maintainers:** Rajat  
 **Contact:** [GitHub Issues](https://github.com/rajat-wyrm/InternOps/issues)
