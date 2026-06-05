@@ -132,10 +132,10 @@ InternOps follows a clean **layered architecture**, separating concerns into dis
 |-------------|--------------------------------------------------|
 | **Backend** | Node.js, Fastify v4, JavaScript (CommonJS)       |
 | **Frontend**| React 18, Vite, TailwindCSS, Axios, TanStack Query, Zustand |
-| **Database**| PostgreSQL (Neon serverless), raw SQL via pg driver |
+| **Database**| PostgreSQL (Neon serverless), raw SQL via \pg\ driver |
 | **Cache**   | Redis (Upstash) – optional, used for refresh token storage |
 | **Auth**    | JWT with access/refresh token rotation, Argon2 hashing |
-| **Docs**    | Swagger UI (OpenAPI 3.0) via @fastify/swagger |
+| **Docs**    | Swagger UI (OpenAPI 3.0) via \@fastify/swagger\ |
 | **Security**| Helmet, CORS, Rate Limiting, CSRF tokens, input sanitisation, brute‑force lockout |
 | **DevOps**  | Git, GitHub, PowerShell scripting                |
 
@@ -267,16 +267,16 @@ Frontend runs at **http://localhost:5173** and proxies API requests to the backe
 
 ## 6. Environment Variables
 
-All variables are defined in ackend/.env. The table below lists every variable, its purpose, and whether it is required.
+All variables are defined in \ackend/.env\. The table below lists every variable, its purpose, and whether it is required.
 
 | Variable                   | Description                                                   | Required | Default                |
 |----------------------------|---------------------------------------------------------------|----------|------------------------|
 | PORT                       | HTTP port for the Fastify server                              | No       | 5000                   |
 | HOST                       | Bind address (0.0.0.0 for all interfaces)                     | No       | 0.0.0.0                |
-| NODE_ENV                   | Environment (development, production)                     | No       | development            |
+| NODE_ENV                   | Environment (\development\, \production\)                     | No       | development            |
 | DATABASE_URL               | PostgreSQL connection string (Neon)                           | **Yes**  | –                      |
 | JWT_SECRET                 | Secret key for signing JWT tokens                             | **Yes**  | –                      |
-| JWT_EXPIRES_IN             | Token expiry duration (7d)                                  | No       | 7d                     |
+| JWT_EXPIRES_IN             | Token expiry duration (\7d\)                                  | No       | 7d                     |
 | API_KEY                    | Internal service‑to‑service authentication key                | No       | –                      |
 | CORS_ORIGIN                | Allowed origin for CORS (production frontend URL)             | No       | http://localhost:5173  |
 | UPSTASH_REDIS_REST_URL     | Upstash Redis REST URL (for refresh token storage)            | No       | –                      |
@@ -462,38 +462,38 @@ The platform implements a defence‑in‑depth security model:
 - **Authentication** – JWT access tokens (15 min) with refresh token rotation (7 days). Argon2id password hashing with salt.
 - **Authorization** – RBAC middleware checks the user’s role. Ownership middleware recursively verifies hierarchical access.
 - **Brute‑Force Protection** – Failed login attempts are tracked per email and IP. After 5 failures in 15 minutes, the account is temporarily locked.
-- **CSRF Protection** – All state‑changing requests require an X-CSRF-Token header, validated on the server.
-- **Rate Limiting** – 100 requests/min globally, 5 requests/min on /api/auth routes.
+- **CSRF Protection** – All state‑changing requests require an \X-CSRF-Token\ header, validated on the server.
+- **Rate Limiting** – 100 requests/min globally, 5 requests/min on \/api/auth\ routes.
 - **Helmet** – Sets secure HTTP headers (Content‑Security‑Policy, HSTS, X‑Frame‑Options, etc.).
 - **Input Sanitisation** – Strips HTML tags and quotes from request bodies, query parameters, and URL params.
 - **File Upload Validation** – Only JPEG/PNG/GIF images are accepted. Filenames are UUIDs. Files larger than 5 MB are rejected.
 - **Audit Logging** – Every sensitive action is recorded with the actor, target, old/new values, IP, and user agent. Logs are immutable.
 - **Soft Deletes** – Users and other resources are marked as deleted rather than physically removed.
-- **SQL Injection Prevention** – All queries use parameterised statements (\, \, etc.) via the pg driver.
+- **SQL Injection Prevention** – All queries use parameterised statements (\\\, \\\, etc.) via the \pg\ driver.
 
 ---
 
 ## 10. Uptoskills Integration
 
-A dedicated module (ackend/src/modules/uptoskills) provides service stubs and a status endpoint.  
+A dedicated module (\ackend/src/modules/uptoskills\) provides service stubs and a status endpoint.  
 To complete the integration, implement the following placeholder functions:
 
-- getInternsFromUptoskills()
-- getDepartmentsFromUptoskills()
-- syncUsers()
-- syncAttendance()
-- syncProjects()
+- \getInternsFromUptoskills()\
+- \getDepartmentsFromUptoskills()\
+- \syncUsers()\
+- \syncAttendance()\
+- \syncProjects()\
 
 All connection details (base URL, API key) are configured via environment variables  
-(UPTOSKILLS_BASE_URL, UPTOSKILLS_API_KEY). The existing API endpoint /api/uptoskills/sync-status  
-returns a 
-ot_implemented status and can be replaced with the actual synchronisation logic.
+(\UPTOSKILLS_BASE_URL\, \UPTOSKILLS_API_KEY\). The existing API endpoint \/api/uptoskills/sync-status\  
+returns a \
+ot_implemented\ status and can be replaced with the actual synchronisation logic.
 
 ---
 
 ## 11. Testing
 
-A comprehensive PowerShell diagnostic script is available in the project root (scripts/).  
+A comprehensive PowerShell diagnostic script is available in the project root (\scripts/\).  
 It verifies:
 
 - Server health and HTTP connectivity
@@ -518,9 +518,9 @@ A successful run produces a pass/fail summary for every module.
 
 ### 12.1 Production Checklist
 
-- Set NODE_ENV=production in ackend/.env.
-- Use a strong, unique JWT_SECRET and rotate it regularly.
-- Restrict CORS_ORIGIN to the exact production frontend URL.
+- Set \NODE_ENV=production\ in \ackend/.env\.
+- Use a strong, unique \JWT_SECRET\ and rotate it regularly.
+- Restrict \CORS_ORIGIN\ to the exact production frontend URL.
 - Run the backend behind a reverse proxy (Nginx, Traefik) that terminates SSL.
 - Use a process manager (e.g., PM2) to keep the Node.js process alive.
 - Run database migrations as part of the CI/CD pipeline.
