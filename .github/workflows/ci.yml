@@ -46,6 +46,13 @@ jobs:
       - name: Install backend dependencies
         run: cd backend && npm ci
 
+      - name: Wait for PostgreSQL
+        run: |
+          until pg_isready -h localhost -p 5432 -U postgres; do
+            echo "Waiting for PostgreSQL..."
+            sleep 2
+          done
+
       - name: Run migrations
         run: cd backend && npm run migrate
 
@@ -55,8 +62,8 @@ jobs:
       - name: Run Jest tests
         run: cd backend && npm test -- --forceExit --detectOpenHandles --runInBand
 
-      - name: Install frontend dependencies (optional)
+      - name: Install frontend dependencies
         run: cd frontend && npm ci
 
-      - name: Build frontend (optional)
+      - name: Build frontend
         run: cd frontend && npm run build
