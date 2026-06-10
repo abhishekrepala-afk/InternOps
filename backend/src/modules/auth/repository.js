@@ -1,4 +1,4 @@
-﻿const pool = require('../../config/db');
+const pool = require('../../config/db');
 const argon2 = require('argon2');
 
 async function createUser({ email, password, role, managerId, departmentId, fullName }) {
@@ -109,3 +109,4 @@ module.exports = {
   revokeRefreshTokenRedis,
   revokeAllUserTokensRedis
 };
+

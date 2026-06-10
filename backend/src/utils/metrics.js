@@ -1,12 +1,12 @@
 ﻿const client = require('prom-client');
-const collectDefaultMetrics = client.collectDefaultMetrics;
-collectDefaultMetrics({ timeout: 5000 });
+
+client.collectDefaultMetrics();
 
 const httpRequestDurationMicroseconds = new client.Histogram({
   name: 'http_request_duration_ms',
   help: 'Duration of HTTP requests in ms',
   labelNames: ['method', 'route', 'status_code'],
-  buckets: [5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000],
+  buckets: [5,10,25,50,100,250,500,1000,2500,5000],
 });
 
 const activeRequests = new client.Gauge({
@@ -14,16 +14,21 @@ const activeRequests = new client.Gauge({
   help: 'Number of active HTTP requests',
 });
 
-function trackActiveRequests(req, res, next) {
+async function trackActiveRequests(request, reply) {
   activeRequests.inc();
-  res.on('finish', () => activeRequests.dec());
-  if (next) next();
+
+  reply.raw.on('finish', () => {
+    activeRequests.dec();
+  });
 }
 
 function observeHttpRequest(req, res, startTime) {
   const route = req.route ? req.route.path : req.url;
   const duration = Date.now() - startTime;
-  httpRequestDurationMicroseconds.labels(req.method, route, res.statusCode).observe(duration);
+
+  httpRequestDurationMicroseconds
+    .labels(req.method, route, res.statusCode)
+    .observe(duration);
 }
 
 module.exports = {
@@ -32,6 +37,6 @@ module.exports = {
   observeHttpRequest,
   metricsEndpoint: async (req, reply) => {
     reply.type('text/plain');
-    reply.send(await client.register.metrics());
+    return client.register.metrics();
   },
 };

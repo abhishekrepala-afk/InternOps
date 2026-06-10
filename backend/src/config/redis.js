@@ -17,13 +17,14 @@ function getLogger() {
 }
 
 async function getRedisClient() {
+  if (process.env.NODE_ENV === 'test') return null;
   if (!config.redisUrl) return null;   // No URL -> no Redis
   if (client) return client;
 
   try {
     client = redis.createClient({
       url: config.redisUrl,
-      socket: { connectTimeout: 3000 } // Removed reconnectStrategy: false so it attempts to reconnect automatically
+      socket: { connectTimeout: 1000, reconnectStrategy: false }
     });
 
     client.on('error', (err) => {
@@ -59,3 +60,6 @@ function getRedisStatus() {
 }
 
 module.exports = { getRedisClient, getRedisStatus };
+
+
+

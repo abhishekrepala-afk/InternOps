@@ -23,10 +23,21 @@ async function routes(fastify) {
 
   // Login
   fastify.post('/login', { preHandler: [bruteForceCheck], schema: { tags: ['Authentication'], description: 'Login with email and password' } }, async (req, reply) => {
-    const { email, password } = z.object({ email: z.string().email(), password: z.string() }).parse(req.body);
-    const result = await service.login(email, password, req.ip, req.headers['user-agent']);
-    reply.setCookie('refreshToken', result.refreshToken, { httpOnly: true, secure: false, sameSite: 'strict', path: '/api/auth/refresh' });
-    return { accessToken: result.accessToken, refreshToken: result.refreshToken, user: result.user };
+    const result = z.object({
+  email: z.string().email(),
+  password: z.string()
+}).safeParse(req.body);
+
+if (!result.success) {
+  return reply.status(400).send({
+    error: result.error.flatten()
+  });
+}
+
+const { email, password } = result.data;
+    const loginResult = await service.login(email, password, req.ip, req.headers['user-agent']);
+    reply.setCookie('refreshToken', loginResult.refreshToken, { httpOnly: true, secure: false, sameSite: 'strict', path: '/api/auth/refresh' });
+    return { accessToken: loginResult.accessToken, refreshToken: loginResult.refreshToken, user: loginResult.user };
   });
 
   // Refresh token
@@ -70,3 +81,4 @@ async function routes(fastify) {
 }
 
 module.exports = routes;
+
