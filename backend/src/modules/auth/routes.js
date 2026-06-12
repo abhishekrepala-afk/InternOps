@@ -27,7 +27,7 @@ async function routes(fastify) {
     const result = await service.login(email, password, req.ip, req.headers['user-agent']);
     reply.setCookie('refreshToken', result.refreshToken, { httpOnly: true, secure: isProduction, sameSite: 'strict', path: '/api/auth/refresh' });
     return { accessToken: result.accessToken, refreshToken: result.refreshToken, user: result.user };
-    
+  });
 
   // Refresh token
   fastify.post('/refresh', { schema: { tags: ['Authentication'], description: 'Refresh access token' } }, async (req, reply) => {
