@@ -91,7 +91,6 @@ async function routes(fastify) {
         }
       }
 
-
       await repo.suspendUser(req.params.id);
       req.auditOnResponse = {
         userId: req.user.id,
