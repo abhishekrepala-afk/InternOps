@@ -57,6 +57,17 @@ function inject(method, url, opts = {}) {
   });
 }
 
+async function refreshCsrfToken() {
+  const csrfRes = await app.inject({
+    method: 'GET',
+    url: '/api/auth/csrf-token',
+    cookies,
+  });
+  csrfToken = JSON.parse(csrfRes.body).csrfToken;
+  mergeCookies(cookies, parseSetCookie(csrfRes.headers['set-cookie']));
+  mergeCookies(cookies, csrfRes.cookies);
+}
+
 // ---------------------------------------------------------------------------
 // Setup / Teardown
 // ---------------------------------------------------------------------------
@@ -74,15 +85,9 @@ beforeAll(async () => {
     TEST_EMAILS,
   ]);
 
-  // Fetch CSRF token
+  // Fetch initial CSRF token (pre-login)
   cookies = {};
-  const csrfRes = await app.inject({
-    method: 'GET',
-    url: '/api/auth/csrf-token',
-  });
-  csrfToken = JSON.parse(csrfRes.body).csrfToken;
-  mergeCookies(cookies, parseSetCookie(csrfRes.headers['set-cookie']));
-  mergeCookies(cookies, csrfRes.cookies);
+  await refreshCsrfToken();
 
   // Login as the seeded admin
   const loginRes = await app.inject({
@@ -100,12 +105,21 @@ beforeAll(async () => {
   accessToken = JSON.parse(loginRes.body).accessToken;
   mergeCookies(cookies, parseSetCookie(loginRes.headers['set-cookie']));
 
+  // Login rotates the CSRF session — the pre-login csrfToken is now stale.
+  // Re-fetch it before issuing any further state-changing requests, or
+  // every subsequent POST/PATCH will be rejected with 403 (CSRF mismatch),
+  // which is exactly what caused secondAdminId/internId to end up undefined.
+  await refreshCsrfToken();
+
   // Resolve the seeded admin's UUID
   const adminRow = await pool.query(
     'SELECT id FROM users WHERE email = $1 AND deleted_at IS NULL',
     [SEEDED_ADMIN_EMAIL]
   );
   seededAdminId = adminRow.rows[0].id;
+  if (!seededAdminId) {
+    throw new Error('Failed to resolve seeded admin ID');
+  }
 
   // Create a second admin via the register endpoint (admin-only)
   const reg2 = await inject('POST', '/api/auth/register', {
@@ -116,7 +130,15 @@ beforeAll(async () => {
       fullName: 'Second Admin',
     },
   });
+  if (reg2.statusCode !== 201) {
+    throw new Error(
+      `Failed to create second admin (${reg2.statusCode}): ${reg2.body}`
+    );
+  }
   secondAdminId = JSON.parse(reg2.body).id;
+  if (!secondAdminId) {
+    throw new Error(`Register response missing id: ${reg2.body}`);
+  }
 
   // Create an intern
   const regIntern = await inject('POST', '/api/auth/register', {
@@ -127,7 +149,15 @@ beforeAll(async () => {
       fullName: 'Test Intern',
     },
   });
+  if (regIntern.statusCode !== 201) {
+    throw new Error(
+      `Failed to create intern (${regIntern.statusCode}): ${regIntern.body}`
+    );
+  }
   internId = JSON.parse(regIntern.body).id;
+  if (!internId) {
+    throw new Error(`Register response missing id: ${regIntern.body}`);
+  }
 });
 
 afterAll(async () => {
