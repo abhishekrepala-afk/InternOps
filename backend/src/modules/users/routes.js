@@ -71,7 +71,6 @@ async function routes(fastify) {
     '/:id/suspend',
     { preHandler: [auth, rbac('ADMIN')] },
     async (req, reply) => {
-      
       if (req.user.id === req.params.id) {
         return reply.status(400).send({
           error: 'You cannot suspend your own account',
