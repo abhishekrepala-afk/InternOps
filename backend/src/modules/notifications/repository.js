@@ -85,6 +85,6 @@ module.exports = {
   markRead,
   markAllRead,
   deleteNotification,
-    deleteAllNotifications,
+  deleteAllNotifications,
   getUnreadCount,
 };
