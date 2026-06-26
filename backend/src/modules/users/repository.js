@@ -108,7 +108,6 @@ async function countOtherActiveAdmins(id) {
   return result.rows[0].total;
 }
 
-
 module.exports = {
   listUsersByRole,
   listUsersPaginated,
@@ -116,5 +115,4 @@ module.exports = {
   suspendUser,
   activateUser,
   softDeleteUser,
-
 };
