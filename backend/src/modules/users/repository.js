@@ -65,6 +65,22 @@ async function softDeleteUser(id) {
     [id]
   );
 }
+
+/**
+ * Returns the count of active (non-suspended, non-deleted) ADMINs.
+ * Used by the suspend route to enforce the last-active-admin invariant.
+ */
+async function countActiveAdmins() {
+  const { rows } = await pool.query(
+    `SELECT COUNT(*)::int AS count
+     FROM users
+     WHERE role = 'ADMIN'
+       AND suspended = FALSE
+       AND deleted_at IS NULL`
+  );
+  return rows[0].count;
+}
+
 module.exports = {
   listUsersByRole,
   listUsersPaginated,
@@ -72,4 +88,5 @@ module.exports = {
   suspendUser,
   activateUser,
   softDeleteUser,
+  countActiveAdmins,
 };
