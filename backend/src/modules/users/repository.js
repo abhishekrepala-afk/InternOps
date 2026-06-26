@@ -94,7 +94,6 @@ async function softDeleteUser(id) {
     [id]
   );
 }
- fix/last-admin-suspend-guard
 async function countOtherActiveAdmins(id) {
   const result = await pool.query(
     `SELECT COUNT(*)::int AS total
