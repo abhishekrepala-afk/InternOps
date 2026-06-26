@@ -70,27 +70,39 @@ async function routes(fastify) {
   fastify.patch(
     '/:id/suspend',
     { preHandler: [auth, rbac('ADMIN')] },
-    async (req, reply) => {
-      if (req.user.id === req.params.id) {
-        return reply.status(400).send({
-          error: 'You cannot suspend your own account',
-        });
-      }
+   async (req, reply) => {
+  // Prevent self-suspension
+  if (req.user.id === req.params.id) {
+    return reply.status(400).send({
+      error: 'You cannot suspend your own account',
+    });
+  }
 
-      const {
-        rows: [targetUser],
-      } = await repo.getUserById(req.params.id);
+  const {
+    rows: [targetUser],
+  } = await repo.getUserById(req.params.id);
 
-      if (targetUser?.role === 'ADMIN') {
-        const adminCount = await repo.countOtherActiveAdmins(req.params.id);
+  if (targetUser?.role === 'ADMIN') {
+    const adminCount = await repo.countOtherActiveAdmins(req.params.id);
 
-        if (adminCount === 0) {
-          return reply.status(400).send({
-            error: 'Cannot suspend the last active admin',
-          });
-        }
-      }
+    if (adminCount === 0) {
+      return reply.status(400).send({
+        error: 'Cannot suspend the last active admin',
+      });
+    }
+  }
 
+  await repo.suspendUser(req.params.id);
+
+  req.auditOnResponse = {
+    userId: req.user.id,
+    action: 'USER_SUSPENDED',
+    resourceType: 'user',
+    resourceId: req.params.id,
+  };
+
+  return { message: 'Suspended' };
+}
       await repo.suspendUser(req.params.id);
       req.auditOnResponse = {
         userId: req.user.id,
