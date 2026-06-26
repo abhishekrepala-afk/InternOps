@@ -107,8 +107,7 @@ async function countOtherActiveAdmins(id) {
 
   return result.rows[0].total;
 }
-master
-}
+
 
 module.exports = {
   listUsersByRole,
