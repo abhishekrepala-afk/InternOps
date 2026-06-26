@@ -115,4 +115,5 @@ module.exports = {
   suspendUser,
   activateUser,
   softDeleteUser,
+  countOtherActiveAdmins,
 };
