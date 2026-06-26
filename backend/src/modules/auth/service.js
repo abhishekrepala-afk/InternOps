@@ -14,6 +14,10 @@ const {
 const { isValidStep } = require('../../utils/hierarchy');
 const { sendVerificationEmail } = require('./verificationService');
 
+const DUMMY_USER = {
+  password_hash:
+    '$argon2id$v=19$m=65536,t=3,p=4$8/VvKJehP9DGKtV1NP5p8g$z0S2q7BsbH2YY16pI0/jXvgI4ElwnccjvW3NNcCSsQk',
+};
 async function register(data, creator) {
   if (data.managerId) {
     const manager = await repo.findByIdRaw(data.managerId);
@@ -65,12 +69,8 @@ async function login(email, password, ip, userAgent) {
   const refresh = generateRefreshToken(user);
   const expires = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
   await repo.storeRefreshTokenRedis(user.id, hashToken(refresh), expires);
-  await createAuditLog({
-    userId: user.id,
-    action: 'LOGIN',
-    ipAddress: ip,
-    userAgent,
-  });
+
+  // NOTE: the LOGIN audit log is intentionally NOT written here.
   return {
     accessToken: access,
     refreshToken: refresh,
@@ -132,12 +132,5 @@ async function logout(token, authenticatedUserId, ip, userAgent) {
   }
 
   await repo.revokeRefreshTokenRedis(hashToken(token));
-
-  await createAuditLog({
-    userId: authenticatedUserId,
-    action: 'LOGOUT',
-    ipAddress: ip,
-    userAgent,
-  });
 }
 module.exports = { register, login, refreshTokens, logout };

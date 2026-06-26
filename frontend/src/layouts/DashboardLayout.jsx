@@ -20,6 +20,7 @@ import {
   Sun,
   Moon,
   Menu,
+  Megaphone,
 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -62,6 +63,12 @@ const nav = [
     path: '/exports',
     label: 'Exports',
     icon: Download,
+    roles: ['ADMIN', 'SENIOR_TL'],
+  },
+  {
+    path: '/notices',
+    label: 'Notice Board',
+    icon: Megaphone,
     roles: ['ADMIN', 'SENIOR_TL'],
   },
 ];
@@ -222,7 +229,6 @@ export default function DashboardLayout() {
             >
               {collapsed ? '»' : '«'}
             </button>
-            <h1 className="text-lg font-bold text-gray-800">{current.label}</h1>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -255,7 +261,7 @@ export default function DashboardLayout() {
           </div>
         </header>
 
-        <main className="flex-1 overflow-auto">
+        <main className="flex-1 overflow-auto p-6">
           {/* This Outlet renders the active page component (e.g. Dashboard, Tasks, Profile) */}
           <Outlet />
         </main>

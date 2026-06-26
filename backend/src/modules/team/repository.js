@@ -54,7 +54,7 @@ async function getTeamMembers(managerId) {
       UNION ALL
       SELECT u.id, u.manager_id, t.depth + 1
       FROM users u INNER JOIN team t ON u.manager_id = t.id
-      WHERE u.deleted_at IS NULL
+      WHERE u.deleted_at IS NULL AND t.depth < 100
     )
     SELECT ${MEMBER_COLUMNS}, t.depth, ${PERFORMANCE_COLUMNS}
     FROM team t
@@ -66,14 +66,14 @@ async function getTeamMembers(managerId) {
   return rows;
 }
 
-async function getMemberById(id) {
+async function getMemberById(id, client = pool) {
   const query = `
     SELECT ${MEMBER_COLUMNS}, ${PERFORMANCE_COLUMNS}
     FROM users u
     ${PERFORMANCE_JOINS}
     WHERE u.id = $1 AND u.deleted_at IS NULL
   `;
-  const { rows } = await pool.query(query, [id]);
+  const { rows } = await client.query(query, [id]);
   return rows[0] || null;
 }
 
@@ -109,11 +109,14 @@ async function updateMember(id, data) {
 }
 
 // Create a new member under the given manager, with optional detail fields.
-async function createMember(data) {
+async function createMember(data, client = pool) {
+  if (!data.full_name?.trim()) {
+    throw new Error('Full name is required');
+  }
   const hash = await argon2.hash(data.password);
   const {
     rows: [created],
-  } = await pool.query(
+  } = await client.query(
     `INSERT INTO users
        (email, password_hash, role, manager_id, department_id, full_name,
         phone, college, course, year_of_study, position, joining_date, internship_status, location, notes)
@@ -137,19 +140,19 @@ async function createMember(data) {
       data.notes || null,
     ]
   );
-  return getMemberById(created.id);
+  return getMemberById(created.id, client);
 }
 
-async function emailExists(email) {
-  const { rowCount } = await pool.query(
+async function emailExists(email, client = pool) {
+  const { rowCount } = await client.query(
     'SELECT 1 FROM users WHERE email = $1 AND deleted_at IS NULL',
     [email]
   );
   return rowCount > 0;
 }
 
-async function getUserRole(id) {
-  const { rows } = await pool.query(
+async function getUserRole(id, client = pool) {
+  const { rows } = await client.query(
     'SELECT role FROM users WHERE id = $1 AND deleted_at IS NULL',
     [id]
   );
@@ -181,10 +184,10 @@ async function getMemberHistory(id) {
 async function getPendingProofs(managerId, limit = 50) {
   const query = `
     WITH RECURSIVE team AS (
-      SELECT id FROM users WHERE manager_id = $1 AND deleted_at IS NULL
+      SELECT id, 0 AS depth FROM users WHERE manager_id = $1 AND deleted_at IS NULL
       UNION ALL
-      SELECT u.id FROM users u INNER JOIN team t ON u.manager_id = t.id
-      WHERE u.deleted_at IS NULL
+      SELECT u.id, t.depth + 1 FROM users u INNER JOIN team t ON u.manager_id = t.id
+      WHERE u.deleted_at IS NULL AND t.depth < 100
     )
     SELECT p.id, p.intern_id, p.image_path, p.status, p.created_at,
            u.full_name AS intern_name, u.email AS intern_email,
@@ -201,38 +204,38 @@ async function getPendingProofs(managerId, limit = 50) {
   return rows;
 }
 
-async function setMemberStatus(id, suspended) {
-  await pool.query(
+async function setMemberStatus(id, suspended, client = pool) {
+  await client.query(
     'UPDATE users SET suspended = $1, updated_at = NOW() WHERE id = $2 AND deleted_at IS NULL',
     [suspended, id]
   );
-  return getMemberById(id);
+  return getMemberById(id, client);
 }
 
 // Roles of a member's direct reports (used to keep the hierarchy valid when
 // demoting: a member must still outrank everyone reporting to them).
-async function getDirectReportRoles(id) {
-  const { rows } = await pool.query(
+async function getDirectReportRoles(id, client = pool) {
+  const { rows } = await client.query(
     'SELECT DISTINCT role FROM users WHERE manager_id = $1 AND deleted_at IS NULL',
     [id]
   );
   return rows.map((r) => r.role);
 }
 
-async function updateMemberRole(id, role) {
-  await pool.query(
+async function updateMemberRole(id, role, client = pool) {
+  await client.query(
     'UPDATE users SET role = $1, updated_at = NOW() WHERE id = $2 AND deleted_at IS NULL',
     [role, id]
   );
-  return getMemberById(id);
+  return getMemberById(id, client);
 }
 
-async function updateMemberManager(id, managerId) {
-  await pool.query(
+async function updateMemberManager(id, managerId, client = pool) {
+  await client.query(
     'UPDATE users SET manager_id = $1, updated_at = NOW() WHERE id = $2 AND deleted_at IS NULL',
     [managerId, id]
   );
-  return getMemberById(id);
+  return getMemberById(id, client);
 }
 
 module.exports = {

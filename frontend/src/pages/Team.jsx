@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../lib/axios';
 import useAuthStore from '../store/auth';
+import { Users } from 'lucide-react';
 
 const ROLE_LABEL = {
   SENIOR_TL: 'Senior TL',
@@ -153,6 +154,11 @@ function AddMemberModal({ onClose }) {
 
   const submit = (e) => {
     e.preventDefault();
+
+    if (!form.full_name?.trim()) {
+      setError('Full name is required');
+      return;
+    }
     const payload = Object.fromEntries(
       Object.entries(form).filter(([, v]) => v !== '')
     );
@@ -182,10 +188,11 @@ function AddMemberModal({ onClose }) {
             <p className="text-red-700 bg-red-50 px-3 py-2 rounded">{error}</p>
           )}
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Full name">
+            <Field label="Full name *">
               <input
                 className="border p-2 w-full rounded-lg"
                 value={form.full_name}
+                required
                 onChange={(e) =>
                   setForm({ ...form, full_name: e.target.value })
                 }
@@ -939,19 +946,34 @@ export default function Team() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-2xl font-bold">My Team</h2>
-        <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        {/* Left Side: Title and Icon */}
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-blue-100 text-blue-600 rounded-lg shadow-sm">
+            <Users className="w-6 h-6" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800 tracking-tight">
+              My Team
+            </h1>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Manage your team members and view their status
+            </p>
+          </div>
+        </div>
+
+        {/* Right Side: Action Buttons */}
+        <div className="flex items-center gap-2">
           <button
             onClick={exportCsv}
-            className="px-3 py-2 rounded-lg border bg-white text-sm hover:bg-gray-50"
+            className="px-3 py-2 rounded-lg border bg-white text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
           >
             ⬇ Export CSV
           </button>
           {canAdd && (
             <button
               onClick={() => setAdding(true)}
-              className="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm hover:bg-blue-700"
+              className="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm"
             >
               + Add Member
             </button>

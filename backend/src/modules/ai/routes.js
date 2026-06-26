@@ -1,5 +1,7 @@
 const auth = require('../../middleware/auth');
 const rbac = require('../../middleware/rbac');
+const aiRepo = require('./repository');
+const config = require('../../config');
 const {
   generateAIResponse,
   getProviderHealth,
@@ -11,7 +13,7 @@ async function routes(fastify) {
   fastify.post(
     '/chat',
     {
-      preHandler: [auth, rbac('ADMIN', 'SENIOR_TL', 'TL', 'CAPTAIN')],
+      preHandler: [auth, rbac('ADMIN', 'SENIOR_TL', 'TL')],
       bodyLimit: 10485760,
       config: {
         rateLimit: {
@@ -25,16 +27,95 @@ async function routes(fastify) {
       if (req.body && JSON.stringify(req.body).length > 2000000) {
         return reply.status(400).send({ error: 'Payload too large' });
       }
+      const ALLOWED_ROLES = ['user', 'assistant'];
+
+      let finalMessages = [];
       const { messages, prompt } = req.body || {};
 
-      const finalMessages =
-        Array.isArray(messages) && messages.length > 0
-          ? messages
-          : [{ role: 'user', content: prompt }];
+      if (Array.isArray(messages)) {
+        for (const msg of messages) {
+          if (
+            !msg ||
+            typeof msg !== 'object' ||
+            !ALLOWED_ROLES.includes(msg.role)
+          ) {
+            return reply.status(400).send({
+              error: 'Invalid message role',
+            });
+          }
+        }
 
-      if (!finalMessages[0]?.content) {
+        finalMessages = messages.slice(0, 16).map((msg) => ({
+          role: msg.role,
+          content: String(msg.content || '').slice(0, 2000),
+        }));
+      }
+
+      if (finalMessages.length === 0 && prompt) {
+        finalMessages = [
+          {
+            role: 'user',
+            content: String(prompt).slice(0, 2000),
+          },
+        ];
+      }
+
+      if (finalMessages.length === 0) {
         return reply.status(400).send({
-          error: 'Prompt or messages are required',
+          error: 'Prompt or valid messages are required',
+        });
+      }
+      // if()
+      //   Array.isArray(messages) && messages.length > 0
+      //     ? messages
+      //     : [{ role: 'user', content: prompt }];
+
+      // if (!finalMessages[0]?.content) {
+      //   return reply.status(400).send({
+      //     error: 'Prompt or messages are required',
+      //   });
+      // }
+
+      const MAX_MESSAGES = 32;
+      const MAX_MESSAGE_CHARS = 4000;
+      const MAX_TOTAL_CHARS = 32000;
+      if (finalMessages.length > MAX_MESSAGES) {
+        return reply.status(413).send({
+          error: 'Too many messages',
+        });
+      }
+
+      let totalChars = 0;
+
+      for (const msg of finalMessages) {
+        const content = String(msg.content || '');
+
+        if (content.length > MAX_MESSAGE_CHARS) {
+          return reply.status(413).send({
+            error: 'Message exceeds maximum length',
+          });
+        }
+
+        totalChars += content.length;
+      }
+
+      if (totalChars > MAX_TOTAL_CHARS) {
+        return reply.status(413).send({
+          error: 'Prompt too long',
+        });
+      }
+
+      if (finalMessages.some((msg) => !msg.content || !msg.content.trim())) {
+        return reply.status(400).send({
+          error: 'Message content cannot be empty',
+        });
+      }
+
+      const usage = await aiRepo.getTodayUsage(req.user.id);
+
+      if (usage >= config.ai.dailyLimit) {
+        return reply.status(429).send({
+          error: 'Daily AI usage limit exceeded',
         });
       }
 
@@ -42,8 +123,10 @@ async function routes(fastify) {
         const result = await generateAIResponse({
           userId: req.user.id,
           messages: finalMessages,
-          userId: req.user.id,
         });
+
+        await aiRepo.incrementUsage(req.user.id);
+
         return {
           provider: result.provider,
           cached: result.cached,
@@ -56,9 +139,12 @@ async function routes(fastify) {
           });
         }
 
+        req.log.error(
+          { err: error.message, details: error.details },
+          'AI provider failed'
+        );
         return reply.status(503).send({
           error: 'AI service unavailable',
-          details: error.details || [],
         });
       }
     }
@@ -72,6 +158,21 @@ async function routes(fastify) {
     async () => {
       return {
         providers: getProviderHealth(),
+      };
+    }
+  );
+
+  fastify.get(
+    '/usage',
+    {
+      preHandler: [auth, rbac('ADMIN')],
+    },
+    async () => {
+      const usage = await aiRepo.getDailyUsageReport();
+
+      return {
+        date: new Date().toISOString().split('T')[0],
+        users: usage,
       };
     }
   );

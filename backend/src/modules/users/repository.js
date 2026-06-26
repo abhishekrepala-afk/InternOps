@@ -7,12 +7,32 @@ async function listUsersByRole(role) {
   );
 }
 
-async function listUsersPaginated({ role, page, limit, offset }) {
+async function listUsersPaginated({
+  role,
+  suspended,
+  search,
+  page,
+  limit,
+  offset,
+}) {
   const where = ['deleted_at IS NULL'];
   const params = [];
+
+  if (search) {
+    params.push(`%${search}%`);
+    where.push(
+      `(full_name ILIKE $${params.length} OR email ILIKE $${params.length})`
+    );
+  }
+
   if (role) {
     params.push(role);
     where.push(`role = $${params.length}`);
+  }
+
+  if (typeof suspended === 'boolean') {
+    params.push(suspended);
+    where.push(`suspended = $${params.length}`);
   }
 
   const whereSql = `WHERE ${where.join(' AND ')}`;
@@ -24,7 +44,12 @@ async function listUsersPaginated({ role, page, limit, offset }) {
     ORDER BY created_at DESC
     LIMIT $${params.length + 1} OFFSET $${params.length + 2}
   `;
-  const countSql = `SELECT COUNT(*)::int AS total FROM users ${whereSql}`;
+
+  const countSql = `
+    SELECT COUNT(*)::int AS total
+    FROM users
+    ${whereSql}
+  `;
 
   const [dataRes, countRes] = await Promise.all([
     pool.query(dataSql, [...params, limit, offset]),
@@ -38,6 +63,7 @@ async function listUsersPaginated({ role, page, limit, offset }) {
     limit,
   };
 }
+
 async function getUserById(id) {
   return pool.query(
     `SELECT id, email, role, full_name, suspended, avatar_url, created_at,
@@ -47,38 +73,42 @@ async function getUserById(id) {
     [id]
   );
 }
+
 async function suspendUser(id) {
   await pool.query(
     'UPDATE users SET suspended=TRUE, updated_at=NOW() WHERE id=$1',
     [id]
   );
 }
+
 async function activateUser(id) {
   await pool.query(
     'UPDATE users SET suspended=FALSE, updated_at=NOW() WHERE id=$1',
     [id]
   );
 }
+
 async function softDeleteUser(id) {
   await pool.query(
     'UPDATE users SET deleted_at=NOW(), updated_at=NOW() WHERE id=$1',
     [id]
   );
 }
-
-/**
- * Returns the count of active (non-suspended, non-deleted) ADMINs.
- * Used by the suspend route to enforce the last-active-admin invariant.
- */
-async function countActiveAdmins() {
-  const { rows } = await pool.query(
-    `SELECT COUNT(*)::int AS count
+ fix/last-admin-suspend-guard
+async function countOtherActiveAdmins(id) {
+  const result = await pool.query(
+    `SELECT COUNT(*)::int AS total
      FROM users
      WHERE role = 'ADMIN'
        AND suspended = FALSE
-       AND deleted_at IS NULL`
+       AND deleted_at IS NULL
+       AND id != $1`,
+    [id]
   );
-  return rows[0].count;
+
+  return result.rows[0].total;
+}
+master
 }
 
 module.exports = {
@@ -88,5 +118,5 @@ module.exports = {
   suspendUser,
   activateUser,
   softDeleteUser,
-  countActiveAdmins,
+
 };

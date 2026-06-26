@@ -13,6 +13,15 @@ async function createTask({
   );
   return res.rows[0];
 }
+
+async function assignTask(taskId, userIds) {
+  if (!userIds || userIds.length === 0) return;
+  const values = userIds.map((_, i) => `($1, $${i + 2})`).join(',');
+  await pool.query(
+    `INSERT INTO task_assignments (task_id, user_id) VALUES ${values}`,
+    [taskId, ...userIds]
+  );
+}
 async function getUserEmail(userId) {
   const res = await pool.query('SELECT email FROM users WHERE id = $1', [
     userId,
@@ -34,7 +43,7 @@ async function getTasks(filters, userId, userRole) {
   if (!['ADMIN', 'SENIOR_TL'].includes(userRole)) {
     params.push(userId);
     where.push(
-      `st.id IN (SELECT task_id FROM task_assignments WHERE user_id = $${params.length} AND deleted_at IS NULL)`
+      `(st.id IN (SELECT task_id FROM task_assignments WHERE user_id = $${params.length} AND deleted_at IS NULL) OR st.created_by = $${params.length})`
     );
   }
 
@@ -117,6 +126,7 @@ async function getProofsByIntern(internId) {
 }
 module.exports = {
   createTask,
+  assignTask,
   getUserEmail,
   isTaskAssignedToUser,
   getTasks,

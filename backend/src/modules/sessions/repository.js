@@ -79,30 +79,64 @@ async function revokeSession(sessionId, userId) {
   return res.rowCount > 0;
 }
 
-// ─── revokeAllUserSessions ───────────────────────────────────────────────────
-// WHY: The original ran UPDATE refresh_tokens SET revoked = TRUE for all rows.
-// In Redis mode there are no rows to update — all sessions survive revocation.
-// FIX: In Redis mode, delete every hash in user_tokens:<userId> and the set
-// itself. This is the exact same logic already used in auth/repository.js
-// (revokeAllUserTokensRedis) — we replicate it here to keep sessions/
-// repository.js self-contained without a circular dependency.
 async function revokeAllUserSessions(userId) {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // Revoke all refresh tokens for the user in Postgres
+    await client.query(
+      'UPDATE refresh_tokens SET revoked = TRUE WHERE user_id = $1 AND revoked = FALSE',
+      [userId]
+    );
+
+    // Revoke from Redis atomically
+    const redis = await getRedisClient();
+    if (redis) {
+      const tokens = await redis.sMembers(`user_tokens:${userId}`);
+      if (tokens.length > 0) {
+        const multi = redis.multi();
+        for (const token of tokens) {
+          multi.del(`refresh_token:${token}`);
+        }
+        multi.del(`user_tokens:${userId}`);
+        await multi.exec();
+      }
+    }
+
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+async function getSessionById(sessionId, userId) {
   const redis = await getRedisClient();
 
   if (redis) {
-    const tokens = await redis.sMembers(`user_tokens:${userId}`);
-    for (const token of tokens) {
-      await redis.del(`refresh_token:${token}`);
+    const tokenHashes = await redis.sMembers(`user_tokens:${userId}`);
+
+    if (tokenHashes.includes(sessionId)) {
+      return { id: sessionId };
     }
-    await redis.del(`user_tokens:${userId}`);
-    return;
+
+    return null;
   }
 
-  // ── Postgres fallback ──────────────────────────────────────────────────────
-  await pool.query(
-    'UPDATE refresh_tokens SET revoked = TRUE WHERE user_id = $1 AND revoked = FALSE',
-    [userId]
+  const res = await pool.query(
+    `SELECT id
+     FROM refresh_tokens
+     WHERE id = $1 AND user_id = $2`,
+    [sessionId, userId]
   );
-}
 
-module.exports = { getUserSessions, revokeSession, revokeAllUserSessions };
+  return res.rows[0] || null;
+}
+module.exports = {
+  getUserSessions,
+  revokeSession,
+  revokeAllUserSessions,
+  getSessionById,
+};

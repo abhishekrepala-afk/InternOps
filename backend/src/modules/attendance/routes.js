@@ -5,7 +5,7 @@ const ownership = require('../../middleware/ownership');
 const rbac = require('../../middleware/rbac');
 const { checkHierarchyAccess } = require('../../utils/hierarchy');
 const repo = require('./repository');
-const { createAuditLog, extractRequestInfo } = require('../../utils/audit');
+const { extractRequestInfo } = require('../../utils/audit');
 const { send: sendNotification } = require('../notifications/repository');
 const { z } = require('zod');
 
@@ -55,14 +55,14 @@ async function routes(fastify) {
         status,
         remarks
       );
-      await createAuditLog({
+      req.auditOnResponse = {
         userId: req.user.id,
         ...extractRequestInfo(req),
         action: 'ATTENDANCE_MARKED',
         resourceType: 'attendance',
         resourceId: att.id,
         details: { target: user_id, date, status, remarks },
-      });
+      };
       await sendNotification(
         user_id,
         `Your attendance for ${date} has been marked as ${status}.`
@@ -123,13 +123,13 @@ async function routes(fastify) {
       }
 
       const results = await repo.bulkMark(entries, req.user.id);
-      await createAuditLog({
+      req.auditOnResponse = {
         userId: req.user.id,
         ...extractRequestInfo(req),
         action: 'ATTENDANCE_BULK_MARKED',
         resourceType: 'attendance',
         details: { count: results.length, date: entries[0]?.date },
-      });
+      };
       for (const e of entries)
         await sendNotification(
           e.user_id,
@@ -176,6 +176,25 @@ async function routes(fastify) {
       }
       const { month, year } = parsed.data;
       return repo.getMonthlyStats(req.params.userId, month, year);
+    }
+  );
+
+  //Authorized members
+  fastify.get(
+    '/authorized-members',
+    {
+      schema: { tags: ['Attendance'], description: 'Get members I can view' },
+      preHandler: [auth, rbac('CAPTAIN', 'TL', 'SENIOR_TL', 'ADMIN')],
+    },
+    async (req) => {
+      if (req.user.role === 'ADMIN') {
+        const pool = require('../../config/db');
+        const all = await pool.query(
+          'SELECT id, full_name, role FROM users WHERE deleted_at IS NULL'
+        );
+        return all.rows;
+      }
+      return await repo.getAuthorizedSubordinates(req.user.id);
     }
   );
 }

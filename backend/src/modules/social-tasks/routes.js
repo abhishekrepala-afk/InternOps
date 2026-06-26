@@ -2,7 +2,7 @@
 const auth = require('../../middleware/auth');
 const rbac = require('../../middleware/rbac');
 const repo = require('./repository');
-const { createAuditLog, extractRequestInfo } = require('../../utils/audit');
+const { extractRequestInfo } = require('../../utils/audit');
 const { z } = require('zod');
 const emailService = require('../../services/email');
 
@@ -20,6 +20,10 @@ const createTaskSchema = z.object({
       (v) => !v || !Number.isNaN(Date.parse(v)),
       'deadline must be a valid ISO date'
     ),
+});
+
+const assignTaskSchema = z.object({
+  userIds: z.array(z.string().uuid()),
 });
 
 module.exports = async function socialTasksRoutes(fastify) {
@@ -41,14 +45,14 @@ module.exports = async function socialTasksRoutes(fastify) {
       const data = parsed.data;
 
       const task = await repo.createTask({ ...data, createdBy: req.user.id });
-      await createAuditLog({
+      req.auditOnResponse = {
         userId: req.user.id,
         ...extractRequestInfo(req),
         action: 'TASK_CREATED',
         resourceType: 'social_task',
         resourceId: task.id,
         details: { title: task.title },
-      });
+      };
       try {
         const creatorEmail = await repo.getUserEmail(req.user.id);
         if (creatorEmail) {
@@ -65,6 +69,37 @@ module.exports = async function socialTasksRoutes(fastify) {
         );
       }
       return task;
+    }
+  );
+
+  fastify.post(
+    '/:id/assign',
+    {
+      schema: { tags: ['Tasks'], description: 'Assign task to interns' },
+      preHandler: [auth, rbac('ADMIN', 'SENIOR_TL')],
+    },
+    async (req, reply) => {
+      const parsed = assignTaskSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          error: 'Validation failed',
+          details: parsed.error.issues,
+        });
+      }
+      const { userIds } = parsed.data;
+      if (userIds.length > 0) {
+        await repo.assignTask(req.params.id, userIds);
+      }
+
+      req.auditOnResponse = {
+        userId: req.user.id,
+        action: 'TASK_ASSIGNED',
+        resourceType: 'social_task',
+        resourceId: req.params.id,
+        details: { userIds },
+      };
+
+      return { success: true };
     }
   );
 
