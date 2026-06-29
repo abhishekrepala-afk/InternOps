@@ -6,9 +6,18 @@ const OPTIONAL_VARS = ['REDIS_URL', 'GOOGLE_CLIENT_ID', 'EMAIL_API_KEY'];
 
 const envSchema = z.object({
   PORT: z.string().regex(/^\d+$/, 'PORT must be a valid integer').optional(),
-  SMTP_PORT: z.string().regex(/^\d+$/, 'SMTP_PORT must be a valid integer').optional(),
-  MAX_FILE_SIZE: z.string().regex(/^\d+$/, 'MAX_FILE_SIZE must be a valid integer').optional(),
-  AI_TIMEOUT: z.string().regex(/^\d+$/, 'AI_TIMEOUT must be a valid integer').optional(),
+  SMTP_PORT: z
+    .string()
+    .regex(/^\d+$/, 'SMTP_PORT must be a valid integer')
+    .optional(),
+  MAX_FILE_SIZE: z
+    .string()
+    .regex(/^\d+$/, 'MAX_FILE_SIZE must be a valid integer')
+    .optional(),
+  AI_TIMEOUT: z
+    .string()
+    .regex(/^\d+$/, 'AI_TIMEOUT must be a valid integer')
+    .optional(),
 });
 
 function validateEnv() {
@@ -75,4 +84,3 @@ function validateEnv() {
 }
 
 module.exports = validateEnv;
-
