@@ -245,10 +245,24 @@ app.addHook('onResponse', async (request) => {
 });
 
 app.setErrorHandler((error, request, reply) => {
-  request.log.error(error);
-
-  // Fastify AJV validation errors (from schema.body/params/querystring)
+  // Fastify AJV validation errors from schema.body / params / querystring.
+  // These are safe to return as structured client-facing validation errors.
   if (error.validation) {
+    request.log.warn(
+      {
+        statusCode: 400,
+        message: error.message,
+        validation: error.validation,
+        method: request.method,
+        url: request.url,
+        params: request.params,
+        query: request.query,
+        userId: request.user?.id || null,
+        role: request.user?.role || null,
+      },
+      'Validation error'
+    );
+
     return reply.status(400).send({
       error: 'Validation error',
       details: error.validation.map((v) => ({
@@ -259,22 +273,62 @@ app.setErrorHandler((error, request, reply) => {
     });
   }
 
+  // Zod validation errors.
+  // Return validation details, but do not expose stack traces or internal debug info.
   if (error.name === 'ZodError' || Array.isArray(error.issues)) {
+    request.log.warn(
+      {
+        statusCode: 400,
+        message: error.message,
+        issues: error.issues || [],
+        method: request.method,
+        url: request.url,
+        params: request.params,
+        query: request.query,
+        userId: request.user?.id || null,
+        role: request.user?.role || null,
+      },
+      'Zod validation error'
+    );
+
     return reply.status(400).send({
       error: 'Validation error',
       details: error.issues || [],
     });
   }
 
-  // Preserve messages for explicit HTTP errors, otherwise hide internal details
+  // Preserve safe messages for explicit HTTP/client errors and AppError instances.
+  // Hide internal details for unexpected server errors.
   const statusCode = error.statusCode || 500;
-  const message =
-    statusCode < 500
-      ? error.message
-      : 'An unexpected error occurred. Please try again later.';
+  const isClientError = statusCode >= 400 && statusCode < 500;
+  const isOperational = error.isOperational === true;
+
+  const clientMessage =
+    isClientError || isOperational
+      ? error.message || 'Request failed'
+      : 'Internal Server Error';
+
+  const logPayload = {
+    statusCode,
+    message: error.message,
+    internalMessage: error.internalMessage || null,
+    stack: error.stack,
+    method: request.method,
+    url: request.url,
+    params: request.params,
+    query: request.query,
+    userId: request.user?.id || null,
+    role: request.user?.role || null,
+  };
+
+  if (statusCode >= 500) {
+    request.log.error(logPayload, 'Unhandled server error');
+  } else {
+    request.log.warn(logPayload, 'Request error');
+  }
 
   return reply.status(statusCode).send({
-    error: message,
+    error: clientMessage,
   });
 });
 
