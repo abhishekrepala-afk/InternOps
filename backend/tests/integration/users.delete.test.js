@@ -26,8 +26,8 @@ const {
 const runId = Date.now();
 
 const SECOND_ADMIN_EMAIL = `del-admin2+run${runId}@internops.com`;
-const INTERN_EMAIL       = `del-intern+run${runId}@internops.com`;
-const TEST_EMAILS        = [SECOND_ADMIN_EMAIL, INTERN_EMAIL];
+const INTERN_EMAIL = `del-intern+run${runId}@internops.com`;
+const TEST_EMAILS = [SECOND_ADMIN_EMAIL, INTERN_EMAIL];
 
 let csrfToken;
 let cookies;
@@ -76,7 +76,10 @@ beforeAll(async () => {
 
   // Fetch CSRF token
   cookies = {};
-  const csrfRes = await app.inject({ method: 'GET', url: '/api/auth/csrf-token' });
+  const csrfRes = await app.inject({
+    method: 'GET',
+    url: '/api/auth/csrf-token',
+  });
   csrfToken = JSON.parse(csrfRes.body).csrfToken;
   mergeCookies(cookies, parseSetCookie(csrfRes.headers['set-cookie']));
   mergeCookies(cookies, csrfRes.cookies);
@@ -90,7 +93,9 @@ beforeAll(async () => {
     payload: { email: SEEDED_ADMIN_EMAIL, password: SEEDED_ADMIN_PASSWORD },
   });
   if (loginRes.statusCode !== 200) {
-    throw new Error(`Admin login failed (${loginRes.statusCode}): ${loginRes.body}`);
+    throw new Error(
+      `Admin login failed (${loginRes.statusCode}): ${loginRes.body}`
+    );
   }
   accessToken = JSON.parse(loginRes.body).accessToken;
   mergeCookies(cookies, parseSetCookie(loginRes.headers['set-cookie']));
@@ -158,7 +163,9 @@ describe('DELETE /api/users/:id — last-active-admin delete guard', () => {
     });
 
     expect(res.statusCode).toBe(400);
-    expect(JSON.parse(res.body).error).toBe('You cannot delete your own account');
+    expect(JSON.parse(res.body).error).toBe(
+      'You cannot delete your own account'
+    );
   });
 
   // ── Test 2 ────────────────────────────────────────────────────────────────
@@ -166,23 +173,23 @@ describe('DELETE /api/users/:id — last-active-admin delete guard', () => {
     // Soft-delete the seeded admin directly via SQL so no app-level guard fires,
     // leaving the second admin as the only active admin. Then try to delete
     // the second admin through the API — this must be blocked.
-    await pool.query(
-      'UPDATE users SET deleted_at = NOW() WHERE email = $1',
-      [SEEDED_ADMIN_EMAIL]
-    );
+    await pool.query('UPDATE users SET deleted_at = NOW() WHERE email = $1', [
+      SEEDED_ADMIN_EMAIL,
+    ]);
 
     const res = await inject('DELETE', `/api/users/${secondAdminId}`, {
       payload: {},
     });
 
     expect(res.statusCode).toBe(400);
-    expect(JSON.parse(res.body).error).toBe('Cannot delete the last active admin');
+    expect(JSON.parse(res.body).error).toBe(
+      'Cannot delete the last active admin'
+    );
 
     // Restore the seeded admin for subsequent tests
-    await pool.query(
-      'UPDATE users SET deleted_at = NULL WHERE email = $1',
-      [SEEDED_ADMIN_EMAIL]
-    );
+    await pool.query('UPDATE users SET deleted_at = NULL WHERE email = $1', [
+      SEEDED_ADMIN_EMAIL,
+    ]);
   });
 
   // ── Test 3 ────────────────────────────────────────────────────────────────
@@ -196,10 +203,9 @@ describe('DELETE /api/users/:id — last-active-admin delete guard', () => {
     expect(JSON.parse(res.body).message).toBe('Soft-deleted');
 
     // Restore for the remaining tests
-    await pool.query(
-      'UPDATE users SET deleted_at = NULL WHERE email = $1',
-      [SECOND_ADMIN_EMAIL]
-    );
+    await pool.query('UPDATE users SET deleted_at = NULL WHERE email = $1', [
+      SECOND_ADMIN_EMAIL,
+    ]);
   });
 
   // ── Test 4 ────────────────────────────────────────────────────────────────
@@ -212,32 +218,28 @@ describe('DELETE /api/users/:id — last-active-admin delete guard', () => {
     expect(JSON.parse(res.body).message).toBe('Soft-deleted');
 
     // Restore so afterAll cleanup can hard-delete cleanly
-    await pool.query(
-      'UPDATE users SET deleted_at = NULL WHERE email = $1',
-      [INTERN_EMAIL]
-    );
+    await pool.query('UPDATE users SET deleted_at = NULL WHERE email = $1', [
+      INTERN_EMAIL,
+    ]);
   });
 
   // ── Test 5 ────────────────────────────────────────────────────────────────
   it('should throw a DB exception when directly soft-deleting the last active admin via SQL', async () => {
     // Soft-delete the second admin so only the seeded admin remains active
-    await pool.query(
-      'UPDATE users SET deleted_at = NOW() WHERE email = $1',
-      [SECOND_ADMIN_EMAIL]
-    );
+    await pool.query('UPDATE users SET deleted_at = NOW() WHERE email = $1', [
+      SECOND_ADMIN_EMAIL,
+    ]);
 
     // Direct SQL bypass must be rejected by the trigger
     await expect(
-      pool.query(
-        'UPDATE users SET deleted_at = NOW() WHERE id = $1',
-        [seededAdminId]
-      )
+      pool.query('UPDATE users SET deleted_at = NOW() WHERE id = $1', [
+        seededAdminId,
+      ])
     ).rejects.toThrow('Cannot delete the last active admin');
 
     // Restore the second admin
-    await pool.query(
-      'UPDATE users SET deleted_at = NULL WHERE email = $1',
-      [SECOND_ADMIN_EMAIL]
-    );
+    await pool.query('UPDATE users SET deleted_at = NULL WHERE email = $1', [
+      SECOND_ADMIN_EMAIL,
+    ]);
   });
 });
