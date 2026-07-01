@@ -264,17 +264,23 @@ async function routes(fastify) {
     },
     async (req, reply) => {
       const token = req.cookies.refreshToken;
-      if (!token)
+
+      if (!token) {
         return reply.status(400).send({ error: 'Refresh token required' });
+      }
+
       const tokens = await service.refreshTokens(token, req.ip);
+
       reply.setCookie('refreshToken', tokens.refreshToken, {
         httpOnly: true,
         secure: isProduction,
         sameSite: 'strict',
         path: '/api/auth/refresh',
       });
+
       return {
         accessToken: tokens.accessToken,
+        user: tokens.user,
       };
     }
   );
