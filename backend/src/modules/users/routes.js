@@ -190,7 +190,7 @@ async function routes(fastify) {
     }
   );
 
-fastify.delete(
+  fastify.delete(
     '/:id',
     {
       preHandler: [auth, rbac('ADMIN')],
