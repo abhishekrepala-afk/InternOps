@@ -33,8 +33,8 @@ module.exports = {
       autorestart: true,
       watch: false,
       max_memory_restart: '500M',
-      restart_delay: 4000,   // ms to wait before restarting after a crash
-      max_restarts: 10,       // give up after 10 consecutive crashes
+      restart_delay: 4000, // ms to wait before restarting after a crash
+      max_restarts: 10, // give up after 10 consecutive crashes
 
       // Logging — PM2 rotates these automatically when pm2-logrotate is installed
       out_file: 'logs/api-out.log',
