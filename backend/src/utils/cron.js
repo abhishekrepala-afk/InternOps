@@ -1,21 +1,60 @@
-﻿const cron = require('node-cron');
+﻿'use strict';
+
+const cron = require('node-cron');
 const fs = require('fs').promises;
 const path = require('path');
 const pool = require('../config/db');
 const pLimit = require('p-limit');
+const wb = require('./workerHeartbeat');
 
 let cleanupRunning = false;
 
 const CONCURRENCY = 20;
 const BATCH_SIZE = 500;
+const JOB_NAME = 'proof-image-cleanup';
+const HEARTBEAT_INTERVAL_MS = 60_000;
+
+// Heartbeat timer reference — kept so graceful shutdown can clear it.
+let heartbeatTimer = null;
 
 function setupCronJobs() {
+  // Register the worker so /health/workers shows it before the first heartbeat.
+  wb.register(JOB_NAME);
+
+  // Emit a heartbeat every 60 s, independent of job execution timing.
+  heartbeatTimer = setInterval(() => {
+    wb.heartbeat(JOB_NAME);
+  }, HEARTBEAT_INTERVAL_MS);
+
+  // Do not let the timer prevent clean process exit.
+  if (heartbeatTimer.unref) heartbeatTimer.unref();
+
+  console.info(
+    JSON.stringify({ worker: JOB_NAME, event: 'started' }),
+    'Worker started'
+  );
+
+  // Graceful shutdown: clear the heartbeat timer before the process exits.
+  // app.js already handles SIGTERM/SIGINT, but we clean up the timer early.
+  function stopHeartbeat(signal) {
+    console.info(
+      JSON.stringify({ worker: JOB_NAME, event: 'stopping', signal }),
+      'Worker stopping'
+    );
+    if (heartbeatTimer) {
+      clearInterval(heartbeatTimer);
+      heartbeatTimer = null;
+    }
+  }
+  process.once('SIGTERM', () => stopHeartbeat('SIGTERM'));
+  process.once('SIGINT', () => stopHeartbeat('SIGINT'));
+
   try {
     cron.schedule('0 * * * *', async () => {
       if (cleanupRunning) {
         console.warn(
           JSON.stringify({
-            job: 'proof-image-cleanup',
+            job: JOB_NAME,
             message: 'Cleanup already running. Skipping...',
           })
         );
@@ -24,20 +63,15 @@ function setupCronJobs() {
 
       cleanupRunning = true;
 
-      const jobName = 'proof-image-cleanup';
       const startTime = Date.now();
 
       console.info(
-        JSON.stringify({
-          job: jobName,
-          startedAt: new Date(startTime),
-        }),
+        JSON.stringify({ job: JOB_NAME, startedAt: new Date(startTime) }),
         'Cron job started'
       );
 
       try {
         const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
-
         const uploadsRoot = path.resolve(__dirname, '..', '..', 'uploads');
 
         let totalProcessed = 0;
@@ -120,14 +154,12 @@ function setupCronJobs() {
             totalUpdated += deletedIds.length;
           }
 
-          if (rows.length < BATCH_SIZE) {
-            break;
-          }
+          if (rows.length < BATCH_SIZE) break;
         }
 
         console.info(
           JSON.stringify({
-            job: jobName,
+            job: JOB_NAME,
             durationMs: Date.now() - startTime,
             recordsProcessed: totalProcessed,
             filesDeleted,
@@ -138,7 +170,7 @@ function setupCronJobs() {
       } catch (err) {
         console.error(
           JSON.stringify({
-            job: jobName,
+            job: JOB_NAME,
             err: err.message,
             stack: err.stack,
           }),

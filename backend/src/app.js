@@ -215,6 +215,17 @@ app.get('/health/full', async (req, reply) => {
     .send({ status: healthy ? 'healthy' : 'degraded', checks });
 });
 
+// Worker health — reports liveness based on in-memory heartbeat registry.
+// No authentication required: same policy as the other /health/* routes.
+app.get('/health/workers', async (req, reply) => {
+  const { getAll } = require('./utils/workerHeartbeat');
+  const workers = getAll();
+  const allAlive = workers.length > 0 && workers.every((w) => w.alive);
+  reply
+    .status(allAlive ? 200 : 503)
+    .send({ status: allAlive ? 'ok' : 'degraded', workers });
+});
+
 app.addHook('onRequest', metrics.trackActiveRequests);
 
 app.addHook('onRequest', async (request) => {
