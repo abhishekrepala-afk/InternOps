@@ -157,7 +157,9 @@ describe('Migration Integrity', () => {
     writeMigration(dir, '999_006_first.sql', 'SELECT 1;');
     writeMigration(dir, '999_006_second.sql', 'SELECT 2;');
 
-    await expect(migrate(dir)).rejects.toThrow('Duplicate migration prefix detected: 999');
+    await expect(migrate(dir)).rejects.toThrow(
+      'Duplicate migration prefix detected: 999'
+    );
 
     fs.rmSync(dir, { recursive: true, force: true });
   });
@@ -168,18 +170,29 @@ describe('Migration Integrity', () => {
     const newName = '023_social_tasks_reminder_sent_at.sql';
 
     const sql = 'SELECT 1;';
-    const checksum = crypto.createHash('sha256').update(sql, 'utf8').digest('hex');
+    const checksum = crypto
+      .createHash('sha256')
+      .update(sql, 'utf8')
+      .digest('hex');
     writeMigration(dir, newName, sql);
 
     // Save existing newName migration if it exists in the database
-    const existingMig = await pool.query('SELECT name FROM _migrations WHERE name = $1', [newName]);
-    const existingCheck = await pool.query('SELECT sha256 FROM _migration_checksums WHERE name = $1', [newName]);
+    const existingMig = await pool.query(
+      'SELECT name FROM _migrations WHERE name = $1',
+      [newName]
+    );
+    const existingCheck = await pool.query(
+      'SELECT sha256 FROM _migration_checksums WHERE name = $1',
+      [newName]
+    );
     const hadExisting = existingMig.rowCount > 0;
     const existingChecksumVal = existingCheck.rows[0]?.sha256;
 
     if (hadExisting) {
       await pool.query('DELETE FROM _migrations WHERE name = $1', [newName]);
-      await pool.query('DELETE FROM _migration_checksums WHERE name = $1', [newName]);
+      await pool.query('DELETE FROM _migration_checksums WHERE name = $1', [
+        newName,
+      ]);
     }
 
     await pool.query(
@@ -194,23 +207,49 @@ describe('Migration Integrity', () => {
     try {
       await migrate(dir);
 
-      const resMig = await pool.query('SELECT 1 FROM _migrations WHERE name = $1', [newName]);
+      const resMig = await pool.query(
+        'SELECT 1 FROM _migrations WHERE name = $1',
+        [newName]
+      );
       expect(resMig.rows).toHaveLength(1);
 
-      const resOldMig = await pool.query('SELECT 1 FROM _migrations WHERE name = $1', [oldName]);
+      const resOldMig = await pool.query(
+        'SELECT 1 FROM _migrations WHERE name = $1',
+        [oldName]
+      );
       expect(resOldMig.rows).toHaveLength(0);
 
-      const resCheck = await pool.query('SELECT sha256 FROM _migration_checksums WHERE name = $1', [newName]);
+      const resCheck = await pool.query(
+        'SELECT sha256 FROM _migration_checksums WHERE name = $1',
+        [newName]
+      );
       expect(resCheck.rows).toHaveLength(1);
       expect(resCheck.rows[0].sha256).toBe(checksum);
     } finally {
-      await pool.query('DELETE FROM _migrations WHERE name IN ($1, $2)', [oldName, newName]).catch(() => {});
-      await pool.query('DELETE FROM _migration_checksums WHERE name IN ($1, $2)', [oldName, newName]).catch(() => {});
+      await pool
+        .query('DELETE FROM _migrations WHERE name IN ($1, $2)', [
+          oldName,
+          newName,
+        ])
+        .catch(() => {});
+      await pool
+        .query('DELETE FROM _migration_checksums WHERE name IN ($1, $2)', [
+          oldName,
+          newName,
+        ])
+        .catch(() => {});
 
       // Restore existing migration if it had one
       if (hadExisting) {
-        await pool.query('INSERT INTO _migrations (name) VALUES ($1)', [newName]).catch(() => {});
-        await pool.query('INSERT INTO _migration_checksums (name, sha256) VALUES ($1, $2)', [newName, existingChecksumVal]).catch(() => {});
+        await pool
+          .query('INSERT INTO _migrations (name) VALUES ($1)', [newName])
+          .catch(() => {});
+        await pool
+          .query(
+            'INSERT INTO _migration_checksums (name, sha256) VALUES ($1, $2)',
+            [newName, existingChecksumVal]
+          )
+          .catch(() => {});
       }
 
       fs.rmSync(dir, { recursive: true, force: true });

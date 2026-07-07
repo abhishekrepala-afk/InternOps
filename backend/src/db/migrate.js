@@ -18,14 +18,18 @@ const MIGRATION_RENAMES = {
   '015_update_rating_constraint.sql': '011_update_rating_constraint.sql',
   '015_users_email_lowercase.sql': '012_users_email_lowercase.sql',
   '016_create_ai_usage.sql': '013_create_ai_usage.sql',
-  '016_department_delete_improvements.sql': '014_department_delete_improvements.sql',
+  '016_department_delete_improvements.sql':
+    '014_department_delete_improvements.sql',
   '016_last_admin_guard.sql': '015_last_admin_guard.sql',
   '017_last_admin_delete_guard.sql': '018_last_admin_delete_guard.sql',
   '018_meeting_online_link.sql': '019_meeting_online_link.sql',
-  '018_users_email_active_unique_index.sql': '020_users_email_active_unique_index.sql',
-  '019_add_social_actions_to_proof_submissions.sql': '021_add_social_actions_to_proof_submissions.sql',
+  '018_users_email_active_unique_index.sql':
+    '020_users_email_active_unique_index.sql',
+  '019_add_social_actions_to_proof_submissions.sql':
+    '021_add_social_actions_to_proof_submissions.sql',
   '019_proof_images.sql': '022_proof_images.sql',
-  '020_social_tasks_reminder_sent_at.sql': '023_social_tasks_reminder_sent_at.sql',
+  '020_social_tasks_reminder_sent_at.sql':
+    '023_social_tasks_reminder_sent_at.sql',
 };
 
 const fsPromises = fs.promises;
@@ -102,13 +106,17 @@ async function migrate(migrationsDir) {
     `);
 
     // Handle historical renames automatically so they do not run again
-    const { rows: appliedRows } = await client.query('SELECT name FROM _migrations');
-    const appliedNames = new Set(appliedRows.map(r => r.name));
+    const { rows: appliedRows } = await client.query(
+      'SELECT name FROM _migrations'
+    );
+    const appliedNames = new Set(appliedRows.map((r) => r.name));
 
     for (const [oldName, newName] of Object.entries(MIGRATION_RENAMES)) {
       if (appliedNames.has(oldName)) {
         if (!appliedNames.has(newName)) {
-          console.log(`Renaming applied migration record in DB: ${oldName} -> ${newName}`);
+          console.log(
+            `Renaming applied migration record in DB: ${oldName} -> ${newName}`
+          );
           await client.query(
             'UPDATE _migrations SET name = $1 WHERE name = $2',
             [newName, oldName]
@@ -119,10 +127,9 @@ async function migrate(migrationsDir) {
           );
         } else {
           // If both exist (cleanup edge case), delete the redundant old record
-          await client.query(
-            'DELETE FROM _migrations WHERE name = $1',
-            [oldName]
-          );
+          await client.query('DELETE FROM _migrations WHERE name = $1', [
+            oldName,
+          ]);
           await client.query(
             'DELETE FROM _migration_checksums WHERE name = $1',
             [oldName]
