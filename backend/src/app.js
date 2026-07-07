@@ -110,6 +110,27 @@ app.get(
   }
 );
 
+// Worker health — reports liveness based on in-memory heartbeat registry.
+app.get(
+  '/health/workers',
+  {
+    config: {
+      rateLimit: false,
+    },
+  },
+  async (req, reply) => {
+    const { getAll } = require('./utils/workerHeartbeat');
+    const workers = getAll();
+    const allAlive =
+      workers.length > 0 && workers.every((worker) => worker.alive);
+
+    reply.status(allAlive ? 200 : 503).send({
+      status: allAlive ? 'ok' : 'degraded',
+      workers,
+    });
+  }
+);
+
 app.register(require('@fastify/cors'), {
   origin: config.nodeEnv === 'production' ? config.corsOrigin : true,
   credentials: true,
