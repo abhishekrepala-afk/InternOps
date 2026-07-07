@@ -1,10 +1,22 @@
-﻿const nodemailer = require('nodemailer');
+const nodemailer = require('nodemailer');
 const config = require('../config');
 const path = require('path');
 const fs = require('fs');
 
 const rateLimitMap = new Map();
 const bounceList = new Set();
+
+// Periodic cleanup to prevent memory leaks (#990, #948, #994, #944)
+const CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // every 5 minutes
+const RATE_LIMIT_WINDOW_MS = 60 * 1000;
+setInterval(() => {
+  const now = Date.now();
+  for (const [email, timestamps] of rateLimitMap) {
+    const fresh = timestamps.filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
+    if (fresh.length === 0) rateLimitMap.delete(email);
+    else rateLimitMap.set(email, fresh);
+  }
+}, CLEANUP_INTERVAL_MS).unref();
 
 const metrics = { sent: 0, failed: 0, bounced: 0, retried: 0 };
 

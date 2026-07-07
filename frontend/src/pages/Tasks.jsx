@@ -325,6 +325,13 @@ export default function Tasks() {
   });
   const [deletingProofId, setDeletingProofId] = useState(null);
 
+  // Cleanup objectURLs to prevent memory leak (#932)
+  useEffect(() => {
+    return () => {
+      draftFiles.previews.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [draftFiles.previews]);
+
   const showNotification = (msg) => {
     setNotification(msg);
     setTimeout(() => setNotification(null), 5000);

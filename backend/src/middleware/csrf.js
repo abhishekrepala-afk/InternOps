@@ -129,6 +129,8 @@ const EXEMPT = [
   '/api/auth/refresh',
   '/api/auth/forgot-password',
   '/api/auth/reset-password',
+  '/docs',
+  '/docs/json',
 ];
 
 async function csrfCheck(request, reply) {
