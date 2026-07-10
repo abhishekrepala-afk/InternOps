@@ -235,15 +235,27 @@ export default function Profile() {
                   )}
 
                   <label
-                    className="absolute -bottom-2 -right-2 w-10 h-10 rounded-2xl bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-300 shadow-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center cursor-pointer hover:scale-105 hover:bg-indigo-50 dark:hover:bg-slate-700 transition-all"
-                    title="Change avatar"
+                    className={`absolute -bottom-2 -right-2 w-10 h-10 rounded-2xl bg-white dark:bg-slate-800 text-indigo-600 dark:text-indigo-300 shadow-lg border border-slate-200 dark:border-slate-700 flex items-center justify-center transition-all ${
+                      avatarMut.isPending
+                        ? 'opacity-60 cursor-not-allowed'
+                        : 'cursor-pointer hover:scale-105 hover:bg-indigo-50 dark:hover:bg-slate-700'
+                    }`}
+                    title={
+                      avatarMut.isPending ? 'Uploading...' : 'Change avatar'
+                    }
                   >
-                    <Camera className="w-4 h-4" />
+                    {avatarMut.isPending ? (
+                      <span className="text-[10px] font-semibold">...</span>
+                    ) : (
+                      <Camera className="w-4 h-4" />
+                    )}
                     <input
+                      disabled={avatarMut.isPending}
                       type="file"
                       accept="image/png,image/jpeg,image/jpg,image/webp,image/gif"
                       className="hidden"
                       onChange={(e) => {
+                        if (avatarMut.isPending) return;
                         const file = e.target.files?.[0];
 
                         if (!file) return;
