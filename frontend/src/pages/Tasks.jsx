@@ -193,8 +193,6 @@ export default function Tasks() {
     setDraftFiles({ taskId, files, previews });
   };
 
-  const overdue = (d) => new Date(d) < new Date();
-
   return (
     <div className="animate-fade-in-up">
       {notification && (
