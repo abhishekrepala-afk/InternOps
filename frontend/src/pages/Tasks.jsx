@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Target,
@@ -35,6 +35,7 @@ export default function Tasks() {
   const { user } = useAuthStore();
   const queryClient = useQueryClient();
   const [showForm, setShowForm] = useState(false);
+  const [selectedTask, setSelectedTask] = useState(null);
   const [notification, setNotification] = useState(null);
   const [draftFiles, setDraftFiles] = useState({
     taskId: null,
@@ -48,6 +49,13 @@ export default function Tasks() {
     didShare: false,
   });
   const [deletingProofId, setDeletingProofId] = useState(null);
+
+  // Cleanup objectURLs to prevent memory leak (#932)
+  useEffect(() => {
+    return () => {
+      draftFiles.previews.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, [draftFiles.previews]);
 
   const showNotification = (msg) => {
     setNotification(msg);
@@ -248,7 +256,14 @@ export default function Tasks() {
       )}
 
       {isLoading ? (
-        <Spinner />
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-5">
+          {[1, 2, 3, 4].map((i) => (
+            <div
+              key={i}
+              className="p-5 md:p-6 rounded-2xl bg-slate-100 dark:bg-slate-800 animate-pulse h-48"
+            />
+          ))}
+        </div>
       ) : !tasks?.length ? (
         <EmptyState
           icon={<Target className="w-12 h-12 text-gray-400" />}
