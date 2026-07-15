@@ -123,8 +123,7 @@ export default function Tasks() {
       queryClient.invalidateQueries({ queryKey: ['myProofs'] });
     },
     onError: (error) => {
-      const errorMsg =
-        error.response?.data?.error || 'Failed to submit proof';
+      const errorMsg = error.response?.data?.error || 'Failed to submit proof';
       showNotification(errorMsg);
     },
   });
